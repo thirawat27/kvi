@@ -34,8 +34,22 @@ message VectorSearchResponse {
     repeated Result results = 1;
 }
 
+message StreamRequest {
+    string id = 1;         // client id
+    string channel = 2;    // subscribe channel
+    string publish_payload = 3; // if sending a message
+}
+
+message StreamResponse {
+    string channel = 1;
+    string payload = 2;
+}
+
 service KviService {
     rpc Get(GetRequest) returns (GetResponse);
     rpc Put(PutRequest) returns (PutResponse);
     rpc VectorSearch(VectorSearchRequest) returns (VectorSearchResponse);
+    // Bidirectional Streaming for Pub/Sub & Mesh Comm
+    rpc Stream(stream StreamRequest) returns (stream StreamResponse);
 }
+

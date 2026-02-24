@@ -27,7 +27,7 @@ func TestSQLExecutor(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "user1", rec.ID)
 	assert.Equal(t, "John", rec.Data["name"])
-	assert.Equal(t, "30", rec.Data["age"]) // Note: all values parsed as strings currently for simplicity
+	assert.Equal(t, int64(30), rec.Data["age"]) // integers are correctly typed as int64
 
 	// Test Standard SQL SELECT
 	result, err := executor.ExecuteQuery(ctx, "SELECT * FROM users WHERE id = 'user1'")
@@ -43,7 +43,7 @@ func TestSQLExecutor(t *testing.T) {
 	rec2, err := eng.Get(ctx, "user1")
 	assert.NoError(t, err)
 	assert.Equal(t, "Jane", rec2.Data["name"])
-	assert.Equal(t, "31", rec2.Data["age"])
+	assert.Equal(t, int64(31), rec2.Data["age"])
 
 	// Test Standard SQL DELETE
 	_, err = executor.ExecuteQuery(ctx, "DELETE FROM users WHERE id = 'user1'")
