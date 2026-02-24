@@ -3,138 +3,98 @@ package engine
 import (
 	"sync"
 	"time"
+
 	"github.com/thirawat27/kvi/pkg/types"
 )
 
-// MVCCManager manages multi-version concurrency control
+type VersionedRecord struct {
+	TxID      uint64
+	Timestamp int64
+	Record    *types.Record
+}
+
 type MVCCManager struct {
 	versions map[string][]*VersionedRecord
 	mu       sync.RWMutex
-	counter  uint64 // Global transaction ID
+	lastTxID uint64
 }
 
-// VersionedRecord represents a versioned record for MVCC
-type VersionedRecord struct {
-	TxID      uint64
-	Record    *types.Record
-	Deleted   bool
-	Timestamp time.Time
-}
-
-// NewMVCCManager creates a new MVCC manager
 func NewMVCCManager() *MVCCManager {
 	return &MVCCManager{
 		versions: make(map[string][]*VersionedRecord),
-		counter:  0,
 	}
 }
 
-// AddVersion adds a new version of a record
-func (m *MVCCManager) AddVersion(key string, record *types.Record, txID uint64) {
+func (m *MVCCManager) Put(key string, record *types.Record) uint64 {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	m.lastTxID++
 	vr := &VersionedRecord{
-		TxID:      txID,
+		TxID:      m.lastTxID,
+		Timestamp: time.Now().UnixNano(),
 		Record:    record,
-		Deleted:   false,
-		Timestamp: time.Now(),
 	}
 
 	m.versions[key] = append(m.versions[key], vr)
-
-	// Keep only last 10 versions to prevent memory bloat
-	if len(m.versions[key]) > 10 {
-		m.versions[key] = m.versions[key][len(m.versions[key])-10:]
-	}
+	return m.lastTxID
 }
 
-// MarkDeleted marks a key as deleted at a specific transaction
-func (m *MVCCManager) MarkDeleted(key string, txID uint64) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	vr := &VersionedRecord{
-		TxID:      txID,
-		Record:    nil,
-		Deleted:   true,
-		Timestamp: time.Now(),
-	}
-
-	m.versions[key] = append(m.versions[key], vr)
-}
-
-// Get retrieves a record as of a specific transaction (time-travel query)
-func (m *MVCCManager) Get(key string, asOfTx uint64) (*types.Record, error) {
+func (m *MVCCManager) Get(key string) (*types.Record, uint64) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	versions := m.versions[key]
-	if len(versions) == 0 {
-		return nil, types.ErrKeyNotFound
+	vrs, ok := m.versions[key]
+	if !ok || len(vrs) == 0 {
+		return nil, 0
 	}
 
-	// Binary search for the version matching the timestamp
-	for i := len(versions) - 1; i >= 0; i-- {
-		v := versions[i]
-		if v.TxID <= asOfTx && !v.Deleted {
-			return v.Record, nil
-		}
-	}
-
-	return nil, types.ErrKeyNotFound
+	last := vrs[len(vrs)-1]
+	return last.Record, last.TxID
 }
 
-// GetLatest retrieves the latest version of a record
-func (m *MVCCManager) GetLatest(key string) (*types.Record, error) {
+// GetAsOf supports time-travel queries
+func (m *MVCCManager) GetAsOf(key string, txID uint64) *types.Record {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	versions := m.versions[key]
-	if len(versions) == 0 {
-		return nil, types.ErrKeyNotFound
+	vrs, ok := m.versions[key]
+	if !ok {
+		return nil
 	}
 
-	// Find the latest non-deleted version
-	for i := len(versions) - 1; i >= 0; i-- {
-		v := versions[i]
-		if !v.Deleted {
-			return v.Record, nil
+	// Binary search for version lookup
+	left, right := 0, len(vrs)-1
+	var result *VersionedRecord
+
+	for left <= right {
+		mid := left + (right-left)/2
+		if vrs[mid].TxID <= txID {
+			result = vrs[mid]
+			left = mid + 1
+		} else {
+			right = mid - 1
 		}
 	}
 
-	return nil, types.ErrKeyNotFound
+	if result != nil {
+		return result.Record
+	}
+	return nil
 }
 
-// NextTxID generates the next transaction ID
-func (m *MVCCManager) NextTxID() uint64 {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.counter++
-	return m.counter
-}
-
-// Cleanup removes versions older than retention period
-func (m *MVCCManager) Cleanup(retention time.Duration) {
+func (m *MVCCManager) GC(olderThanTxID uint64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	cutoff := time.Now().Add(-retention)
-
-	for key, versions := range m.versions {
-		var newVersions []*VersionedRecord
-		for _, v := range versions {
-			if v.Timestamp.After(cutoff) {
-				newVersions = append(newVersions, v)
+	for key, vrs := range m.versions {
+		var filtered []*VersionedRecord
+		// Keep at least the latest or versions >= olderThanTxID
+		for i, vr := range vrs {
+			if vr.TxID >= olderThanTxID || i == len(vrs)-1 {
+				filtered = append(filtered, vr)
 			}
 		}
-		m.versions[key] = newVersions
+		m.versions[key] = filtered
 	}
-}
-
-// GetVersionCount returns the number of versions for a key
-func (m *MVCCManager) GetVersionCount(key string) int {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return len(m.versions[key])
 }

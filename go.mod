@@ -1,16 +1,16 @@
 module github.com/thirawat27/kvi
 
-go 1.25
+go 1.26.0
+
+require github.com/google/btree v1.1.3
+
+require github.com/klauspost/compress v1.18.4
+
+require github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2 // indirect
 
 require (
-	github.com/google/btree v1.1.2
-	github.com/klauspost/compress v1.17.7
-	github.com/golang/protobuf v1.5.4
-	google.golang.org/grpc v1.62.0
-	google.golang.org/protobuf v1.33.0
-	github.com/vmihailenco/msgpack/v5 v5.4.1
-	github.com/gorilla/websocket v1.5.1
-	github.com/rs/cors v1.10.1
-	github.com/valyala/fasthttp v1.52.0
-	github.com/minio/simdjson-go v0.4.3
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/stretchr/testify v1.11.1
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

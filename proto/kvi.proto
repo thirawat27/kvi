@@ -1,215 +1,41 @@
 syntax = "proto3";
 
 package kvi;
+option go_package = "github.com/thirawat27/kvi/pkg/grpc;kvi_grpc";
 
-option go_package = "github.com/thirawat27/kvi/pkg/grpc/kvipb";
-
-// Kvi Service - Cross-language compatible gRPC API
-service KviService {
-    // Basic CRUD
-    rpc Get(GetRequest) returns (GetResponse);
-    rpc Put(PutRequest) returns (PutResponse);
-    rpc Delete(DeleteRequest) returns (DeleteResponse);
-    rpc Scan(ScanRequest) returns (stream Record);
-    rpc BatchPut(BatchPutRequest) returns (BatchPutResponse);
-    
-    // Vector Operations
-    rpc VectorAdd(VectorAddRequest) returns (VectorAddResponse);
-    rpc VectorSearch(VectorSearchRequest) returns (VectorSearchResponse);
-    
-    // Snapshot Operations
-    rpc Snapshot(SnapshotRequest) returns (SnapshotResponse);
-    rpc Restore(RestoreRequest) returns (RestoreResponse);
-    
-    // Pub/Sub
-    rpc Publish(PublishRequest) returns (PublishResponse);
-    rpc Subscribe(SubscribeRequest) returns (stream Message);
-    
-    // Query
-    rpc Query(QueryRequest) returns (QueryResponse);
-    
-    // Stats & Health
-    rpc Stats(StatsRequest) returns (StatsResponse);
-    rpc Health(HealthRequest) returns (HealthResponse);
-}
-
-// Record represents a database record
-message Record {
-    string id = 1;
-    map<string, Value> data = 2;
-    repeated float vector = 3;
-    uint64 version = 4;
-    int64 ttl = 5; // Unix timestamp, 0 means no TTL
-    uint32 checksum = 6;
-    int64 created_at = 7;
-    int64 updated_at = 8;
-}
-
-// Value represents a dynamic value
-message Value {
-    oneof value {
-        string string_value = 1;
-        int64 int_value = 2;
-        double float_value = 3;
-        bool bool_value = 4;
-        bytes bytes_value = 5;
-        ValueArray array_value = 6;
-        ValueMap map_value = 7;
-    }
-}
-
-message ValueArray {
-    repeated Value values = 1;
-}
-
-message ValueMap {
-    map<string, Value> values = 1;
-}
-
-// Get
 message GetRequest {
     string key = 1;
-    uint64 as_of = 2; // For time-travel queries
 }
 
 message GetResponse {
-    Record record = 1;
-    bool found = 2;
+    string id = 1;
+    string data_json = 2; // JSON representation for dynamic map
 }
 
-// Put
 message PutRequest {
     string key = 1;
-    Record record = 2;
+    string data_json = 2;
 }
 
 message PutResponse {
     bool success = 1;
-    uint64 version = 2;
-}
-
-// Delete
-message DeleteRequest {
-    string key = 1;
-}
-
-message DeleteResponse {
-    bool success = 1;
-}
-
-// Scan
-message ScanRequest {
-    string start = 1;
-    string end = 2;
-    int32 limit = 3;
-}
-
-// BatchPut
-message BatchPutRequest {
-    map<string, Record> entries = 1;
-}
-
-message BatchPutResponse {
-    int32 count = 1;
-    bool success = 2;
-}
-
-// Vector Operations
-message VectorAddRequest {
-    string key = 1;
-    repeated float vector = 2;
-    map<string, Value> metadata = 3;
-}
-
-message VectorAddResponse {
-    bool success = 1;
 }
 
 message VectorSearchRequest {
-    repeated float query = 1;
+    repeated float vector = 1;
     int32 k = 2;
 }
 
 message VectorSearchResponse {
-    repeated VectorResult results = 1;
+    message Result {
+        string id = 1;
+        string data_json = 2;
+    }
+    repeated Result results = 1;
 }
 
-message VectorResult {
-    string id = 1;
-    float score = 2;
-    Record record = 3;
-}
-
-// Snapshot
-message SnapshotRequest {}
-
-message SnapshotResponse {
-    bytes snapshot_data = 1;
-    uint32 checksum = 2;
-    int64 created_at = 3;
-}
-
-message RestoreRequest {
-    bytes snapshot_data = 1;
-    uint32 checksum = 2;
-}
-
-message RestoreResponse {
-    bool success = 1;
-}
-
-// Pub/Sub
-message PublishRequest {
-    string channel = 1;
-    bytes data = 2;
-}
-
-message PublishResponse {
-    bool success = 1;
-}
-
-message SubscribeRequest {
-    string channel = 1;
-    string subscriber_id = 2;
-}
-
-message Message {
-    string id = 1;
-    string channel = 2;
-    bytes data = 3;
-    int64 timestamp = 4;
-}
-
-// Query
-message QueryRequest {
-    string query = 1;
-}
-
-message QueryResponse {
-    repeated Record records = 1;
-    bool success = 2;
-    string error = 3;
-}
-
-// Stats
-message StatsRequest {}
-
-message StatsResponse {
-    int64 records_total = 1;
-    int64 memory_used = 2;
-    int64 disk_used = 3;
-    double cache_hit_ratio = 4;
-    int64 avg_query_time_ns = 5;
-    int64 wal_size = 6;
-    string mode = 7;
-    string version = 8;
-}
-
-// Health
-message HealthRequest {}
-
-message HealthResponse {
-    string status = 1;
-    int64 timestamp = 2;
-    string mode = 3;
+service KviService {
+    rpc Get(GetRequest) returns (GetResponse);
+    rpc Put(PutRequest) returns (PutResponse);
+    rpc VectorSearch(VectorSearchRequest) returns (VectorSearchResponse);
 }
