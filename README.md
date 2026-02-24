@@ -212,6 +212,46 @@ curl -X POST http://localhost:8080/api/v1/pub \
 *Response Detail:* `{"receivers": 0, "status": "ok"}`
 *(The receiver integer tracks how many parallel internal web-socket or SSE connections matched that topic channel).*
 
+## 🌐 Multi-Language Client SDKs (Python, Node.js, etc.)
+
+Because KVi communicates over universally accepted JSON HTTP/REST, any programming language on Earth that can make a web request (fetch/cURL) can interface with it natively. 
+
+However, to speed up integration, we provided out-of-the-box object-oriented SDK client wrappers under the `sdks/` directory.
+
+### 🐍 Python SDK Example
+
+```python
+from sdks.python.kvi.client import KviClient
+
+client = KviClient("http://localhost:8080")
+
+# Store Data natively
+client.put("user:99", {"name": "Alice", "role": "admin"})
+
+# Execute Standard SQL!
+result = client.query("SELECT * FROM users WHERE id = 'user:99'")
+print(result) # {'id': 'user:99', 'data': {'name': 'Alice', 'role': 'admin'}}
+```
+
+### 🟨 Node.js / JavaScript Example
+
+Using standard zero-dependency ES6 `Promises` and `fetch`.
+
+```javascript
+const KviClient = require('./sdks/javascript/src/client.js');
+
+(async () => {
+    const client = new KviClient("http://localhost:8080");
+
+    // Standard SQL Data Insertion
+    await client.query("INSERT INTO users (id, name, age) VALUES ('user:88', 'John', 45)");
+
+    // Pub/Sub Broadcast Network Notification
+    const receivers = await client.publish("system_logs", "CRITICAL: Task failed!");
+    console.log(`Alert sent to ${receivers} listening nodes.`);
+})();
+```
+
 ---
 
 ## 🎯 Real-World Use Cases
